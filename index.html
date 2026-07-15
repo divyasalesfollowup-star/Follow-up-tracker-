@@ -1125,7 +1125,7 @@
         </div>
         <div class="form-group">
           <label class="form-label">On-Road Price (NPR)</label>
-          <input class="form-input" id="f_onroadprice" placeholder="Auto-filled वा आफै type गर्नुस्" style="background:#fff">
+          <input class="form-input" id="f_onroadprice" placeholder="Auto-filled वा आफै type गर्नुस्" style="background:#fff" oninput="updateValDiff()">
         </div>
         <div class="form-group">
           <label class="form-label">Premium / Registration (NPR)</label>
@@ -1426,6 +1426,10 @@
         <div class="form-group" id="insurance_co_wrap" style="display:none">
           <label class="form-label">Insurance Company</label>
           <input class="form-input" id="f_insuranceCo" placeholder="e.g. Shikhar Insurance">
+        </div>
+        <div class="form-group" id="insurance_amt_wrap" style="display:none">
+          <label class="form-label">Insurance Amount (NPR) 🛡️</label>
+          <input class="form-input" id="f_insuranceAmount" type="number" placeholder="e.g. 15000">
         </div>
 
         <!-- SECTION: Delivery Document Checklist -->
@@ -2621,7 +2625,8 @@ function renderTable() {
     tbody.innerHTML = page.map(l => {
       const due = dueMeta(l.followUpDate);
       const noteCount = (l.notes||[]).length;
-      const pinfo = MODEL_PRICES[l.interestedModel];
+      const lPrice = getLeadPrice(l);
+      const lPremium = getLeadPremium(l);
       const bookingTotal = (parseFloat(l.pay_cash)||0)+(parseFloat(l.pay_fonepay)||0)+(parseFloat(l.pay_esewa)||0);
       const bookingCell = l.bookingStatus==='Delivered'
         ? `<div>
@@ -2657,7 +2662,7 @@ function renderTable() {
         </td>
         <td class="oc" title="${esc(l.interestedModel)}">
           <div style="font-weight:600;font-size:12px">${esc(l.interestedModel)}</div>
-          ${pinfo?`<div class="model-price">Rs.${pinfo.price.toLocaleString('en-IN')} · +${pinfo.premium.toLocaleString('en-IN')}</div>`:''}
+          ${lPrice?`<div class="model-price">Rs.${lPrice.toLocaleString('en-IN')}${lPremium?' · +'+lPremium.toLocaleString('en-IN'):''}</div>`:''}
         </td>
         <td>${statusBadge(l.leadStatus)}</td>
         <td>${priBadge(l.priority)}</td>
@@ -2709,6 +2714,18 @@ function changePage(p){currentPage=p;renderTable();}
 
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
+// Effective price/premium for a lead: manually typed/saved value wins, else fallback to model's list price
+function getLeadPrice(l){
+  if(l && l.onroadPrice){ const n=parseFloat(String(l.onroadPrice).replace(/,/g,'')); if(!isNaN(n) && n>0) return n; }
+  const info = l ? MODEL_PRICES[l.interestedModel] : null;
+  return info ? info.price : null;
+}
+function getLeadPremium(l){
+  if(l && l.premium){ const n=parseFloat(String(l.premium).replace(/,/g,'')); if(!isNaN(n) && n>0) return n; }
+  const info = l ? MODEL_PRICES[l.interestedModel] : null;
+  return info ? info.premium : null;
+}
+
 // MODEL CHANGE — auto-fill price (known models), manual model/price le values change gardaina
 function onModelChange() {
   const m = document.getElementById('f_model').value;
@@ -2732,7 +2749,7 @@ function toggleBooking() {
     document.getElementById(id).style.display = isBooked ? '' : 'none';
   });
   document.getElementById('actual_delivery_wrap').style.display = isDelivered ? '' : 'none';
-  ['engine_wrap','chassis_wrap','bikereg_wrap','colour_wrap','bikeInfoLabel','sold_amount_wrap','insurance_wrap','insurance_co_wrap'].forEach(id => {
+  ['engine_wrap','chassis_wrap','bikereg_wrap','colour_wrap','bikeInfoLabel','sold_amount_wrap','insurance_wrap','insurance_co_wrap','insurance_amt_wrap'].forEach(id => {
     document.getElementById(id).style.display = isDelivered ? '' : 'none';
   });
   // Delivery document checklist — only when Delivered
@@ -2757,20 +2774,19 @@ function updateSoldTotal() {
 
 function updateValDiff() {
   const exchVal = parseFloat(document.getElementById('f_exch_val').value)||0;
-  const model   = document.getElementById('f_model').value;
-  const pinfo   = MODEL_PRICES[model];
+  const price   = parseFloat(String(document.getElementById('f_onroadprice').value).replace(/,/g,''))||0;
   const wrap    = document.getElementById('val_diff_wrap');
   const box     = document.getElementById('val_diff_box');
   const amtEl   = document.getElementById('val_diff_amount');
   const noteEl  = document.getElementById('val_diff_note');
-  if (!exchVal || !pinfo) { wrap.style.display='none'; return; }
+  if (!exchVal || !price) { wrap.style.display='none'; return; }
   wrap.style.display = '';
-  const diff = pinfo.price - exchVal;
+  const diff = price - exchVal;
   if (diff >= 0) {
     box.classList.remove('negative');
     amtEl.classList.remove('negative');
     amtEl.textContent = 'Rs. ' + diff.toLocaleString('en-IN');
-    noteEl.textContent = `On-Road (${pinfo.price.toLocaleString('en-IN')}) − Exchange Val (${exchVal.toLocaleString('en-IN')}) = Customer ले थप तिर्नु`;
+    noteEl.textContent = `On-Road (${price.toLocaleString('en-IN')}) − Exchange Val (${exchVal.toLocaleString('en-IN')}) = Customer ले थप तिर्नु`;
   } else {
     box.classList.add('negative');
     amtEl.classList.add('negative');
@@ -2974,6 +2990,9 @@ function openModal(id) {
     document.getElementById('f_address').value=l.address||'';
     document.getElementById('f_model').value=l.interestedModel||'';
     onModelChange();
+    if(l.onroadPrice) document.getElementById('f_onroadprice').value=l.onroadPrice;
+    if(l.premium) document.getElementById('f_premium').value=l.premium;
+    if(l.onroadPrice) document.getElementById('priceChip').innerHTML=`<span class="price-chip">Rs. ${l.onroadPrice}</span>`;
     document.getElementById('f_status').value=l.leadStatus||'Hot';
     document.getElementById('f_lostReason').value=l.lostReason||'';
     toggleLostReasonField();
@@ -3020,6 +3039,7 @@ function openModal(id) {
     document.getElementById('f_sold_cheque').value=l.sold_cheque||'';
     document.getElementById('f_insuranceType').value=l.insuranceType||'';
     document.getElementById('f_insuranceCo').value=l.insuranceCo||'';
+    document.getElementById('f_insuranceAmount').value=l.insuranceAmount||'';
     document.getElementById('f_engineNo').value=l.engineNo||'';
     document.getElementById('f_chassisNo').value=l.chassisNo||'';
     document.getElementById('f_bikeRegNo').value=l.bikeRegNo||'';
@@ -3047,7 +3067,7 @@ function openModal(id) {
      'f_exch_val','f_exch_model','f_exch_reg','f_exch_year','f_exch_km','f_exch_ask','f_visitDate',
      'f_bookingNo','f_bookingDate','f_deliveryDate','f_actualDelivery',
      'f_pay_cash','f_pay_fonepay','f_pay_esewa','f_pay_cheque','f_cheque_detail',
-     'f_insuranceCo','f_exchValue','f_sold_cash','f_sold_fonepay','f_sold_cheque',
+     'f_insuranceCo','f_insuranceAmount','f_exchValue','f_sold_cash','f_sold_fonepay','f_sold_cheque',
      'f_engineNo','f_chassisNo','f_bikeRegNo','f_bikeColour',
      'f_namsari_fee','f_namsari_tax','f_namsari_other','f_namsari_remark'].forEach(x=>document.getElementById(x).value='');
     document.getElementById('f_namsari_status').value='';
@@ -3102,6 +3122,8 @@ function saveLead() {
     municipality: document.getElementById('f_municipality').value.trim(),
     address: document.getElementById('f_address').value.trim(),
     interestedModel: model,
+    onroadPrice: document.getElementById('f_onroadprice').value.trim(),
+    premium: document.getElementById('f_premium').value.trim(),
     leadStatus: document.getElementById('f_bookingStatus').value==='Delivered' ? 'Converted' : document.getElementById('f_status').value,
     lostReason: (document.getElementById('f_status').value==='Cold' || document.getElementById('f_status').value==='Lost') ? document.getElementById('f_lostReason').value : '',
     priority: document.getElementById('f_priority').value,
@@ -3145,6 +3167,7 @@ function saveLead() {
                + (parseFloat(document.getElementById('f_exchValue').value)||0),
     insuranceType: document.getElementById('f_insuranceType').value,
     insuranceCo: document.getElementById('f_insuranceCo').value.trim(),
+    insuranceAmount: document.getElementById('f_insuranceAmount').value,
     engineNo: document.getElementById('f_engineNo').value.trim().toUpperCase(),
     chassisNo: document.getElementById('f_chassisNo').value.trim().toUpperCase(),
     bikeRegNo: document.getElementById('f_bikeRegNo').value.trim().toUpperCase(),
@@ -3253,9 +3276,9 @@ function doDelete(){
 
 // WHATSAPP
 function openWA(phone,name,model,leadId) {
-  const pinfo=MODEL_PRICES[model];
-  const priceText = pinfo ? `\nOn-Road Price: *Rs. ${pinfo.price.toLocaleString('en-IN')}*` : '';
   const lead = leadId ? leads.find(x=>x.id===leadId) : null;
+  const waPrice = lead ? getLeadPrice(lead) : (MODEL_PRICES[model]?MODEL_PRICES[model].price:null);
+  const priceText = waPrice ? `\nOn-Road Price: *Rs. ${waPrice.toLocaleString('en-IN')}*` : '';
   const score = lead ? calcLeadScore(lead) : null;
 
   // Rule-based tone: overdue/high-score leads get an urgent nudge,
@@ -3275,16 +3298,15 @@ function openWA(phone,name,model,leadId) {
 
 // EXPORT CSV
 function exportCSV() {
-  const headers=['Name','Phone','District','Municipality','Ward/Area','Model','On-Road Price','Premium','Status','Priority','Source','Mode of Payment','Budget','Follow-Up Date','Visit Date','Assigned To','Exchange','Exch Model','Exch Reg','Exch Year','Exch KM','Exch Condition','Cust.Ask Price','Offered Val','Old Bike Tax Status','Old Bike Tax Remarks','Sanakhat Status','Booking Status','Booking No','Booking Date','Delivery Date','Actual Delivery','Pay Cash','Pay Fonepay','Pay eSewa','Sold Amount','Sold Cash','Sold Fonepay','Sold Cheque','Exchange Value','Engine No','Chassis No','Bike Reg No','Bike Colour','Remark','Notes Count','Created'];
+  const headers=['Name','Phone','District','Municipality','Ward/Area','Model','On-Road Price','Premium','Status','Priority','Source','Mode of Payment','Budget','Follow-Up Date','Visit Date','Assigned To','Exchange','Exch Model','Exch Reg','Exch Year','Exch KM','Exch Condition','Cust.Ask Price','Offered Val','Old Bike Tax Status','Old Bike Tax Remarks','Sanakhat Status','Booking Status','Booking No','Booking Date','Delivery Date','Actual Delivery','Pay Cash','Pay Fonepay','Pay eSewa','Sold Amount','Sold Cash','Sold Fonepay','Sold Cheque','Exchange Value','Engine No','Chassis No','Bike Reg No','Bike Colour','Insurance Type','Insurance Co','Insurance Amount','Remark','Notes Count','Created'];
   const rows=leads.map(l=>{
-    const pinfo=MODEL_PRICES[l.interestedModel]||{};
-    return [l.name,l.phone,l.district||'',l.municipality||'',l.address||'',l.interestedModel,pinfo.price||'',pinfo.premium||'',
+    return [l.name,l.phone,l.district||'',l.municipality||'',l.address||'',l.interestedModel,getLeadPrice(l)||'',getLeadPremium(l)||'',
       l.leadStatus,l.priority,l.source,l.finance||'',l.budget||'',
       l.followUpDate||'',l.visitDate||'',l.assignedTo||'',l.exchange||'No',
       l.exch_model||'',l.exch_reg||'',l.exch_year||'',l.exch_km||'',l.exch_cond||'',l.exch_ask||'',l.exch_val||'',l.exch_tax_status||'',l.exch_tax_remark||'',l.namsari_status||'',
       l.bookingStatus||'No',l.bookingNo||'',l.bookingDate||'',l.deliveryDate||'',l.actualDelivery||'',
       l.pay_cash||'',l.pay_fonepay||'',l.pay_esewa||'',l.soldAmount||'',l.sold_cash||'',l.sold_fonepay||'',l.sold_cheque||'',l.exchValue||'',
-      l.engineNo||'',l.chassisNo||'',l.bikeRegNo||'',l.bikeColour||'',
+      l.engineNo||'',l.chassisNo||'',l.bikeRegNo||'',l.bikeColour||'',l.insuranceType||'',l.insuranceCo||'',l.insuranceAmount||'',
       l.remark||'',(l.notes||[]).length,l.createdAt||''];
   });
   let csv=headers.join(',')+'\n';
@@ -3353,7 +3375,7 @@ let profileLeadId = null;
 function openProfile(id) {
   const l = leads.find(x => x.id === id); if (!l) return;
   profileLeadId = id;
-  const pinfo = MODEL_PRICES[l.interestedModel] || {};
+  const pinfo = { price: getLeadPrice(l), premium: getLeadPremium(l) };
   const due = dueMeta(l.followUpDate);
 
   // Hero
@@ -3504,6 +3526,7 @@ function openProfile(id) {
             ${pf('Actual Delivery', l.actualDelivery ? formatDate(l.actualDelivery) : '—', l.actualDelivery?'green':'')}
             ${pf('Insurance', l.insuranceType||'—', l.insuranceType==='Full Comprehensive'?'green':l.insuranceType?'blue':'')}
             ${pf('Insurance Co.', l.insuranceCo||'—')}
+            ${pf('Insurance Amount', l.insuranceAmount ? 'Rs. ' + Number(l.insuranceAmount).toLocaleString('en-IN') : '—', l.insuranceAmount?'green':'')}
           </div>
           ${(l.del_bluebook||l.del_servicemanual||l.del_insurancepaper||l.del_helmet) ? `
           <div style="margin-top:12px">
@@ -3574,7 +3597,7 @@ function printCustomerProfile(id) {
   const l = leads.find(x => x.id === id);
   if (!l) return;
 
-  const pinfo = MODEL_PRICES[l.interestedModel] || {};
+  const pinfo = { price: getLeadPrice(l), premium: getLeadPremium(l) };
 
   // ── helpers ──
   const fe = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -3634,6 +3657,7 @@ function printCustomerProfile(id) {
         ${bk==='Delivered' ? row('Actual Delivery', fd(l.actualDelivery)) : ''}
         ${bk==='Delivered' ? row('Insurance', l.insuranceType||'—') : ''}
         ${bk==='Delivered' && l.insuranceCo ? row('Insurance Co.', l.insuranceCo) : ''}
+        ${bk==='Delivered' && l.insuranceAmount ? row('Insurance Amount', fmtR(l.insuranceAmount)) : ''}
         ${bk==='Delivered' && l.del_bluebook ? row('🔵 Blue Book', l.del_bluebook==='Received'?'✅ Received':'⏳ Pending') : ''}
         ${bk==='Delivered' && l.del_servicemanual ? row('📘 Service Manual', l.del_servicemanual==='Received'?'✅ Received':'⏳ Pending') : ''}
         ${bk==='Delivered' && l.del_insurancepaper ? row('🛡️ Insurance Paper', l.del_insurancepaper==='Received'?'✅ Received':'⏳ Pending') : ''}
