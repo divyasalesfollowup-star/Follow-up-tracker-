@@ -284,7 +284,7 @@
   .main-wrap { max-width: 1320px; margin: 0 auto; padding: 24px 20px; }
 
   /* KPI STRIP */
-  .kpi-strip { display: grid; grid-template-columns: repeat(8,1fr); gap: 14px; margin-bottom: 24px; }
+  .kpi-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 14px; margin-bottom: 24px; }
   .reminder-banner { display:none; background:linear-gradient(135deg,#fff7ed,#fef2f2); border:1px solid #fecaca; border-radius:12px; padding:14px 18px; margin-bottom:18px; }
   .reminder-banner.show { display:block; }
   .reminder-banner-head { display:flex; align-items:center; justify-content:space-between; cursor:pointer; }
@@ -366,6 +366,7 @@
   .badge-cold      { background: #eff6ff; color: #1d4ed8; } .badge-cold .badge-dot      { background: #3b82f6; }
   .badge-converted { background: #f0fdf4; color: #15803d; } .badge-converted .badge-dot { background: #16a34a; }
   .badge-lost      { background: #f9fafb; color: #4b5563; } .badge-lost .badge-dot      { background: #9ca3af; }
+  .badge-wrongnumber { background: #fdf2f8; color: #a21caf; } .badge-wrongnumber .badge-dot { background: #c026d3; }
 
   .pri-tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
   .pri-high   { background: #fff1ee; color: #c73408; }
@@ -928,6 +929,14 @@
       <div class="kpi-icon cold">❄️</div>
       <div><div class="kpi-num" id="cnt-cold">0</div><div class="kpi-label">Cold</div></div>
     </div>
+    <div class="kpi-card" id="kpi-lost" onclick="filterByBookingStatus('Lost')">
+      <div class="kpi-icon" style="background:#f9fafb">❌</div>
+      <div><div class="kpi-num" id="cnt-lost">0</div><div class="kpi-label">Lost</div></div>
+    </div>
+    <div class="kpi-card" id="kpi-wrongnumber" onclick="filterByBookingStatus('Wrong Number')">
+      <div class="kpi-icon" style="background:#fdf2f8">📵</div>
+      <div><div class="kpi-num" id="cnt-wrongnumber">0</div><div class="kpi-label">Wrong Number</div></div>
+    </div>
     <div class="kpi-card" id="kpi-converted" onclick="filterByStatus('Converted')">
       <div class="kpi-icon done">✅</div>
       <div><div class="kpi-num" id="cnt-converted">0</div><div class="kpi-label">Converted</div></div>
@@ -1027,8 +1036,8 @@
             <th onclick="sortBy('finance')">Payment <span class="sa">↕</span></th>
             <th>Exchange</th>
             <th onclick="sortBy('bookingStatus')">Booking <span class="sa">↕</span></th>
-            <th onclick="sortBy('followUpDate')">Follow-Up Date <span class="sa">↕</span></th>
-            <th onclick="sortBy('visitDate')">Visit Date <span class="sa">↕</span></th>
+            <th onclick="sortBy('visitDate')">First Visit Date <span class="sa">↕</span></th>
+            <th onclick="sortBy('followUpDate')">Next Follow-Up <span class="sa">↕</span></th>
             <th onclick="sortBy('assignedTo')">Assigned <span class="sa">↕</span></th>
             <th>Last Follow-Up</th>
             <th>Actions</th>
@@ -1155,7 +1164,6 @@
             <option value="Warm">🌤️ Warm</option>
             <option value="Cold">❄️ Cold</option>
             <option value="Converted">✅ Converted</option>
-            <option value="Lost">❌ Lost</option>
           </select>
         </div>
         <div class="form-group" id="f_lostReasonGroup" style="display:none">
@@ -1168,6 +1176,7 @@
             <option value="Finance rejected">Finance rejected</option>
             <option value="Changed mind">Changed mind</option>
             <option value="Just browsing">Just browsing</option>
+            <option value="Wrong / invalid number">Wrong / invalid number</option>
             <option value="Other">Other</option>
           </select>
         </div>
@@ -1180,12 +1189,12 @@
           </select>
         </div>
         <div class="form-group">
-          <label class="form-label">Follow-Up Date</label>
-          <input class="form-input" id="f_followUpDate" type="date">
+          <label class="form-label">First Visit Date</label>
+          <input class="form-input" id="f_visitDate" type="date">
         </div>
         <div class="form-group">
-          <label class="form-label">Customer Visit Date</label>
-          <input class="form-input" id="f_visitDate" type="date">
+          <label class="form-label">Next Follow-Up Date</label>
+          <input class="form-input" id="f_followUpDate" type="date">
         </div>
         <div class="form-group">
           <label class="form-label">Assigned To</label>
@@ -1317,10 +1326,12 @@
         <div class="section-label">📋 Booking & Delivery Details</div>
         <div class="form-group">
           <label class="form-label">Booking Status</label>
-          <select class="form-select" id="f_bookingStatus" onchange="toggleBooking()">
+          <select class="form-select" id="f_bookingStatus" onchange="toggleBooking(); toggleLostReasonField();">
             <option value="No">Not Booked</option>
             <option value="Yes">✅ Booked</option>
             <option value="Delivered">🏍️ Delivered</option>
+            <option value="Lost">❌ Lost</option>
+            <option value="Wrong Number">📵 Wrong Number</option>
           </select>
         </div>
         <div class="form-group" id="booking_no_wrap" style="display:none">
@@ -1497,6 +1508,30 @@
         <textarea id="newNoteText" rows="2" placeholder="Add a follow-up note…"></textarea>
         <button class="btn-add-note" onclick="addNote()">Add Note</button>
       </div>
+
+      <div style="margin-top:14px;padding:12px;border:1px solid #f1d9d9;border-radius:10px;background:#fff9f7">
+        <div style="font-size:12px;font-weight:700;color:#5a6580;margin-bottom:8px">🔒 Close this lead</div>
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <button type="button" id="closeLostBtn" onclick="prepCloseLead('Lost')" style="flex:1;padding:8px;border-radius:7px;border:1.5px solid #e2e6f0;background:#fff;color:#4b5563;font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif">❌ Mark Lost</button>
+          <button type="button" id="closeWrongBtn" onclick="prepCloseLead('Wrong Number')" style="flex:1;padding:8px;border-radius:7px;border:1.5px solid #e2e6f0;background:#fff;color:#a21caf;font-size:12px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif">📵 Wrong Number</button>
+        </div>
+        <div id="closeLeadReasonWrap" style="display:none">
+          <label class="form-label" style="font-size:11px">Reason (auto — you can edit the note below manually too)</label>
+          <select class="form-select" id="closeLeadReason" onchange="updateCloseLeadNote()" style="margin-bottom:10px">
+            <option value="Price too high">Price too high</option>
+            <option value="Chose competitor">Chose competitor</option>
+            <option value="No response / Ghosted">No response / Ghosted</option>
+            <option value="Finance rejected">Finance rejected</option>
+            <option value="Changed mind">Changed mind</option>
+            <option value="Just browsing">Just browsing</option>
+            <option value="Wrong / invalid number">Wrong / invalid number</option>
+            <option value="Other">Other</option>
+          </select>
+          <button type="button" class="btn-add-note" id="closeLeadConfirmBtn" onclick="confirmCloseLead()" style="width:100%;justify-content:center">🔒 Close Lead & Save Note</button>
+          <button type="button" class="btn-restore" style="width:100%;justify-content:center;margin-top:6px" onclick="cancelCloseLead()">Cancel</button>
+        </div>
+      </div>
+
       <button class="btn-restore" style="width:100%;margin-top:10px;justify-content:center;background:rgba(201,162,75,0.15);color:#8a6d1f;border-color:rgba(201,162,75,0.4)" onclick="openCallScriptModal(notesLeadId)">📝 Generate Call Script for this Lead</button>
     </div>
   </div>
@@ -2073,7 +2108,22 @@ const PAGE_SIZE = 15;
 
 async function init() {
   await loadLeadsWithCloudMerge();
+  migrateLegacyLostStatus();
   setTodayBadge(); renderKPIs(); renderTable();
+}
+
+// One-time migration: older data had "Lost"/"Wrong Number" stored as leadStatus.
+// Move that into bookingStatus (its new home) and fall back leadStatus to "Cold".
+function migrateLegacyLostStatus() {
+  let changed = false;
+  leads.forEach(l => {
+    if (l.leadStatus === 'Lost' || l.leadStatus === 'Wrong Number') {
+      if (!l.bookingStatus || l.bookingStatus === 'No') l.bookingStatus = l.leadStatus;
+      l.leadStatus = 'Cold';
+      changed = true;
+    }
+  });
+  if (changed) save();
 }
 
 function sampleLeads() {
@@ -2116,11 +2166,12 @@ const BUYING_SIGNAL_WORDS = ['test ride','pre-approved','preapproved','finalisin
 
 function toggleLostReasonField() {
   const status = document.getElementById('f_status').value;
-  document.getElementById('f_lostReasonGroup').style.display = (status === 'Cold' || status === 'Lost') ? '' : 'none';
+  const booking = document.getElementById('f_bookingStatus').value;
+  document.getElementById('f_lostReasonGroup').style.display = (status === 'Cold' || booking === 'Lost' || booking === 'Wrong Number') ? '' : 'none';
 }
 
 function calcLeadScore(l) {
-  if (l.leadStatus === 'Converted' || l.leadStatus === 'Lost') return null; // no active follow-up needed
+  if (l.leadStatus === 'Converted' || l.bookingStatus === 'Lost' || l.bookingStatus === 'Wrong Number') return null; // no active follow-up needed
   let score = 0;
 
   // Lead temperature
@@ -2153,9 +2204,9 @@ function calcLeadScore(l) {
 function scoreBadge(l) {
   const s = calcLeadScore(l);
   if (s === null) {
-    return l.leadStatus === 'Lost'
-      ? `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:5px;font-size:11px;font-weight:700;background:#f3f4f6;color:#6b7280">❌ Lost</span>`
-      : `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:5px;font-size:11px;font-weight:700;background:#f0fdf4;color:#15803d">✅ Bought</span>`;
+    if (l.bookingStatus === 'Lost') return `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:5px;font-size:11px;font-weight:700;background:#f3f4f6;color:#6b7280">❌ Lost</span>`;
+    if (l.bookingStatus === 'Wrong Number') return `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:5px;font-size:11px;font-weight:700;background:#fdf2f8;color:#a21caf">📵 Wrong Number</span>`;
+    return `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:5px;font-size:11px;font-weight:700;background:#f0fdf4;color:#15803d">✅ Bought</span>`;
   }
   let cls, label;
   if (s >= 70)      { cls = 'background:#fef2f2;color:#b91c1c'; label = '🔥 Likely to Buy'; }
@@ -2196,7 +2247,7 @@ function exportInsightsExcel() {
     if (!staffMap[s]) staffMap[s] = { total:0, converted:0, overdue:0, scoreSum:0, scoreCount:0 };
     staffMap[s].total++;
     if (l.leadStatus === 'Converted') staffMap[s].converted++;
-    if (l.followUpDate && l.followUpDate < today && l.leadStatus !== 'Converted' && l.leadStatus !== 'Lost') staffMap[s].overdue++;
+    if (l.followUpDate && l.followUpDate < today && l.leadStatus !== 'Converted' && l.bookingStatus !== 'Lost' && l.bookingStatus !== 'Wrong Number') staffMap[s].overdue++;
     const sc = calcLeadScore(l);
     if (sc !== null) { staffMap[s].scoreSum += sc; staffMap[s].scoreCount++; }
   });
@@ -2214,7 +2265,7 @@ function exportInsightsExcel() {
   }));
 
   // Lost reasons
-  const coldLeads = leads.filter(l => l.leadStatus === 'Cold' || l.leadStatus === 'Lost');
+  const coldLeads = leads.filter(l => l.leadStatus === 'Cold' || l.bookingStatus === 'Lost' || l.bookingStatus === 'Wrong Number');
   const lostCounts = {}; coldLeads.forEach(l => { const r = l.lostReason || 'Not specified'; lostCounts[r] = (lostCounts[r]||0)+1; });
   const totalCold = coldLeads.length || 1;
   const lostRows = Object.entries(lostCounts).sort((a,b)=>b[1]-a[1]).map(([reason,count]) => ({
@@ -2306,7 +2357,7 @@ function insightStaffTable() {
     if (!staffMap[s]) staffMap[s] = { total:0, converted:0, overdue:0, scoreSum:0, scoreCount:0 };
     staffMap[s].total++;
     if (l.leadStatus === 'Converted') staffMap[s].converted++;
-    if (l.followUpDate && l.followUpDate < todayStr() && l.leadStatus !== 'Converted' && l.leadStatus !== 'Lost') staffMap[s].overdue++;
+    if (l.followUpDate && l.followUpDate < todayStr() && l.leadStatus !== 'Converted' && l.bookingStatus !== 'Lost' && l.bookingStatus !== 'Wrong Number') staffMap[s].overdue++;
     const sc = calcLeadScore(l);
     if (sc !== null) { staffMap[s].scoreSum += sc; staffMap[s].scoreCount++; }
   });
@@ -2340,7 +2391,7 @@ function insightStaffTable() {
 }
 
 function insightLostReasons() {
-  const coldLeads = leads.filter(l => l.leadStatus === 'Cold' || l.leadStatus === 'Lost');
+  const coldLeads = leads.filter(l => l.leadStatus === 'Cold' || l.bookingStatus === 'Lost' || l.bookingStatus === 'Wrong Number');
   const counts = {};
   coldLeads.forEach(l => {
     const r = l.lostReason || 'Not specified';
@@ -2386,7 +2437,7 @@ function insightModelDemand() {
 
 function sendAllDueReminders() {
   const today = todayStr();
-  const due = leads.filter(l => l.leadStatus!=='Converted' && l.leadStatus!=='Lost' && l.followUpDate && l.followUpDate<=today);
+  const due = leads.filter(l => l.leadStatus!=='Converted' && l.bookingStatus!=='Lost' && l.bookingStatus!=='Wrong Number' && l.followUpDate && l.followUpDate<=today);
   if (!due.length) { showToast('No due follow-ups right now.','info'); return; }
   showToast(`Opening WhatsApp for ${due.length} customer(s) — allow pop-ups if blocked.`,'info');
   due.forEach((l, i) => {
@@ -2397,7 +2448,7 @@ function sendAllDueReminders() {
 function renderReminderBanner() {
   const today = todayStr();
   const due = leads
-    .filter(l => l.leadStatus !== 'Converted' && l.followUpDate && l.followUpDate <= today)
+    .filter(l => l.leadStatus !== 'Converted' && l.bookingStatus !== 'Lost' && l.bookingStatus !== 'Wrong Number' && l.followUpDate && l.followUpDate <= today)
     .sort((a,b) => (calcLeadScore(b)||0) - (calcLeadScore(a)||0));
 
   const banner = document.getElementById('reminderBanner');
@@ -2432,13 +2483,15 @@ function renderKPIs() {
   renderReminderBanner();
   document.getElementById('cnt-priority').textContent = leads.filter(l => (calcLeadScore(l) || 0) >= 70).length;
   ['Hot','Warm','Cold','Converted'].forEach(s=>{
-    document.getElementById('cnt-'+s.toLowerCase()).textContent = leads.filter(l=>l.leadStatus===s).length;
+    document.getElementById('cnt-'+s.toLowerCase().replace(/\s+/g,'')).textContent = leads.filter(l=>l.leadStatus===s).length;
   });
+  document.getElementById('cnt-lost').textContent = leads.filter(l=>l.bookingStatus==='Lost').length;
+  document.getElementById('cnt-wrongnumber').textContent = leads.filter(l=>l.bookingStatus==='Wrong Number').length;
   document.getElementById('cnt-booked').textContent = leads.filter(l=>l.bookingStatus==='Yes').length;
   document.getElementById('cnt-delivered').textContent = leads.filter(l=>l.bookingStatus==='Delivered').length;
 }
 
-let bookingFilter = null; // null | 'booked' | 'delivered'
+let bookingFilter = null; // null | 'booked' | 'delivered' | 'Lost' | 'Wrong Number'
 let priorityOnly = false;
 
 function filterByBooking() {
@@ -2453,13 +2506,19 @@ function filterByDelivered() {
   document.getElementById('kpi-delivered').classList.add('active');
   renderTable();
 }
+function filterByBookingStatus(status) {
+  bookingFilter = status; currentFilter='all'; priorityOnly=false; currentPage=1;
+  document.querySelectorAll('.kpi-card').forEach(c=>c.classList.remove('active'));
+  document.getElementById('kpi-'+(status==='Lost'?'lost':'wrongnumber')).classList.add('active');
+  renderTable();
+}
 
 function filterByStatus(status) {
   bookingFilter = null;
   priorityOnly = false;
   currentFilter=status; currentPage=1;
   document.querySelectorAll('.kpi-card').forEach(c=>c.classList.remove('active'));
-  document.getElementById('kpi-'+(status==='all'?'all':status.toLowerCase())).classList.add('active');
+  document.getElementById('kpi-'+(status==='all'?'all':status.toLowerCase().replace(/\s+/g,''))).classList.add('active');
   renderTable();
 }
 
@@ -2476,7 +2535,7 @@ function avatarColor(name) {
 function initials(name) { return name.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase(); }
 
 function statusBadge(s) {
-  const map={Hot:'hot',Warm:'warm',Cold:'cold',Converted:'converted',Lost:'lost'};
+  const map={Hot:'hot',Warm:'warm',Cold:'cold',Converted:'converted',Lost:'lost','Wrong Number':'wrongnumber'};
   return `<span class="badge badge-${map[s]||'lost'}"><span class="badge-dot"></span>${s}</span>`;
 }
 function priBadge(p) {
@@ -2568,6 +2627,8 @@ function renderTable() {
     if(priorityOnly && (calcLeadScore(l)||0) < 70) return false;
     if(bookingFilter==='booked' && l.bookingStatus!=='Yes') return false;
     if(bookingFilter==='delivered' && l.bookingStatus!=='Delivered') return false;
+    if(bookingFilter==='Lost' && l.bookingStatus!=='Lost') return false;
+    if(bookingFilter==='Wrong Number' && l.bookingStatus!=='Wrong Number') return false;
     if(modelF && l.interestedModel!==modelF) return false;
     if(sourceF && l.source!==sourceF) return false;
     if(exchF==='yes' && l.exchange!=='Yes') return false;
@@ -2640,6 +2701,10 @@ function renderTable() {
             ${bookingTotal>0?`<div class="booking-amount-chip">Rs.${bookingTotal.toLocaleString('en-IN')}</div>`:''}
             ${l.bookingDate?`<div style="font-size:10px;color:var(--text-muted)">${formatDate(l.bookingDate)}</div>`:''}
            </div>`
+        : l.bookingStatus==='Lost'
+        ? `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:5px;font-size:11px;font-weight:600;background:#f9fafb;color:#4b5563">❌ Lost</span>`
+        : l.bookingStatus==='Wrong Number'
+        ? `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:5px;font-size:11px;font-weight:600;background:#fdf2f8;color:#a21caf">📵 Wrong Number</span>`
         : `<span style="color:var(--text-muted);font-size:12px">—</span>`;
       const taxBadge = l.exch_tax_status==='Pending'
         ? `<span style="font-size:9px;font-weight:700;color:#b45309;background:#fffbeb;padding:1px 6px;border-radius:4px;margin-top:2px;display:inline-block">⏳ Tax Pending</span>`
@@ -2671,8 +2736,8 @@ function renderTable() {
         <td>${paymentBadge(l.finance)}</td>
         <td>${exchCell}</td>
         <td>${bookingCell}</td>
-        <td><span class="due-tag ${due.cls}">${due.label}</span></td>
         <td>${l.visitDate ? `<span class="due-tag due-upcoming" style="background:#f0f4ff;color:#1a3a6e">📅 ${formatDate(l.visitDate)}</span>` : `<span style="color:var(--text-muted);font-size:12px">—</span>`}</td>
+        <td><span class="due-tag ${due.cls}">${due.label}</span></td>
         <td style="font-size:12px">${esc(l.assignedTo||'—')}</td>
         <td>${(()=>{
           const notes = l.notes||[];
@@ -3125,7 +3190,7 @@ function saveLead() {
     onroadPrice: document.getElementById('f_onroadprice').value.trim(),
     premium: document.getElementById('f_premium').value.trim(),
     leadStatus: document.getElementById('f_bookingStatus').value==='Delivered' ? 'Converted' : document.getElementById('f_status').value,
-    lostReason: (document.getElementById('f_status').value==='Cold' || document.getElementById('f_status').value==='Lost') ? document.getElementById('f_lostReason').value : '',
+    lostReason: (document.getElementById('f_status').value==='Cold' || document.getElementById('f_bookingStatus').value==='Lost' || document.getElementById('f_bookingStatus').value==='Wrong Number') ? document.getElementById('f_lostReason').value : '',
     priority: document.getElementById('f_priority').value,
     source: document.getElementById('f_source').value,
     followUpDate: document.getElementById('f_followUpDate').value,
@@ -3223,6 +3288,7 @@ function openNotes(id) {
   document.getElementById('notesTitle').textContent=`Notes — ${l.name}`;
   document.getElementById('newNoteText').value='';
   renderNotes(l);
+  cancelCloseLead();
   document.getElementById('notesOverlay').classList.add('open');
 }
 function closeNotes(){document.getElementById('notesOverlay').classList.remove('open');}
@@ -3250,6 +3316,54 @@ function addNote() {
   save(); renderNotes(l); renderTable();
   document.getElementById('newNoteText').value='';
   showToast('Note added.','info');
+}
+
+// QUICK CLOSE LEAD (Lost / Wrong Number) — from Follow-Up Notes modal
+let closeLeadStatus = null;
+
+function prepCloseLead(status) {
+  closeLeadStatus = status;
+  document.getElementById('closeLeadReasonWrap').style.display = 'block';
+  document.getElementById('closeLeadReason').value = status === 'Wrong Number' ? 'Wrong / invalid number' : 'Price too high';
+  document.getElementById('closeLostBtn').style.background = status === 'Lost' ? '#f3f4f6' : '#fff';
+  document.getElementById('closeLostBtn').style.borderColor = status === 'Lost' ? '#9ca3af' : '#e2e6f0';
+  document.getElementById('closeWrongBtn').style.background = status === 'Wrong Number' ? '#fdf2f8' : '#fff';
+  document.getElementById('closeWrongBtn').style.borderColor = status === 'Wrong Number' ? '#c026d3' : '#e2e6f0';
+  updateCloseLeadNote();
+}
+
+function updateCloseLeadNote() {
+  if (!closeLeadStatus) return;
+  const reason = document.getElementById('closeLeadReason').value || 'Not specified';
+  const label = closeLeadStatus === 'Lost' ? '❌ Lead closed — Lost' : '📵 Lead closed — Wrong Number';
+  document.getElementById('newNoteText').value = `${label}. Reason: ${reason}.`;
+}
+
+function cancelCloseLead() {
+  closeLeadStatus = null;
+  const wrap = document.getElementById('closeLeadReasonWrap');
+  if (wrap) wrap.style.display = 'none';
+  const lostBtn = document.getElementById('closeLostBtn');
+  const wrongBtn = document.getElementById('closeWrongBtn');
+  if (lostBtn) { lostBtn.style.background = '#fff'; lostBtn.style.borderColor = '#e2e6f0'; }
+  if (wrongBtn) { wrongBtn.style.background = '#fff'; wrongBtn.style.borderColor = '#e2e6f0'; }
+}
+
+function confirmCloseLead() {
+  if (!closeLeadStatus) return;
+  const l = leads.find(x => x.id === notesLeadId); if (!l) return;
+  const reason = document.getElementById('closeLeadReason').value;
+  // Note text: auto-generated above, but user may have edited it manually — respect their edit.
+  const text = document.getElementById('newNoteText').value.trim() ||
+    (closeLeadStatus === 'Lost' ? '❌ Lead closed — Lost.' : '📵 Lead closed — Wrong Number.');
+  l.bookingStatus = closeLeadStatus;
+  l.lostReason = reason;
+  l.notes = l.notes || [];
+  l.notes.push({ text, date: todayStr(), author: 'Sales Team' });
+  save(); renderKPIs(); renderTable(); renderNotes(l);
+  document.getElementById('newNoteText').value = '';
+  cancelCloseLead();
+  showToast(closeLeadStatus === 'Lost' ? 'Lead बन्द भयो — Lost.' : 'Lead बन्द भयो — Wrong Number.', 'info');
 }
 
 // DELETE
@@ -3490,14 +3604,22 @@ function openProfile(id) {
       <div class="profile-grid">
         ${pf('Status', l.leadStatus, l.leadStatus==='Converted'?'green':l.leadStatus==='Hot'?'red':'')}
         ${pf('Priority', l.priority, l.priority==='High'?'red':l.priority==='Low'?'green':'')}
-        ${pf('Buy Prediction', (()=>{const s=calcLeadScore(l); return s===null?(l.leadStatus==='Lost'?'❌ Lost lead':'✅ Already bought'):(s>=70?'🔥 Likely to buy':(s>=45?'🤔 Possible':'❄️ Unlikely'))+' ('+s+'%)';})(), (()=>{const s=calcLeadScore(l); return s===null?(l.leadStatus==='Lost'?'':'green'):(s>=70?'red':(s>=45?'':'blue'));})())}
-        ${pf('Follow-Up Date', due.label + (l.followUpDate ? ' (' + formatDate(l.followUpDate) + ')' : ''), l.followUpDate && l.followUpDate < todayStr() ? 'red' : 'green')}
-        ${pf('Visit Date', l.visitDate ? '📅 ' + formatDate(l.visitDate) : '—', l.visitDate ? 'blue' : '')}
+        ${pf('Buy Prediction', (()=>{const s=calcLeadScore(l); return s===null?(l.bookingStatus==='Lost'?'❌ Lost lead':l.bookingStatus==='Wrong Number'?'📵 Wrong number':'✅ Already bought'):(s>=70?'🔥 Likely to buy':(s>=45?'🤔 Possible':'❄️ Unlikely'))+' ('+s+'%)';})(), (()=>{const s=calcLeadScore(l); return s===null?(l.bookingStatus==='Lost'||l.bookingStatus==='Wrong Number'?'':'green'):(s>=70?'red':(s>=45?'':'blue'));})())}
+        ${pf('First Visit Date', l.visitDate ? '📅 ' + formatDate(l.visitDate) : '—', l.visitDate ? 'blue' : '')}
+        ${pf('Next Follow-Up', due.label + (l.followUpDate ? ' (' + formatDate(l.followUpDate) + ')' : ''), l.followUpDate && l.followUpDate < todayStr() ? 'red' : 'green')}
       </div>
     </div>
     ${(()=>{
       const bk = l.bookingStatus||'No';
       if(bk==='No') return '';
+      if(bk==='Lost' || bk==='Wrong Number') return `
+        <div class="profile-section">
+          <div class="profile-section-title">🔒 Lead Closed</div>
+          <div class="profile-grid">
+            ${pf('Booking Status', bk==='Lost'?'❌ Lost':'📵 Wrong Number', bk==='Lost'?'':'')}
+            ${pf('Reason', l.lostReason || '—')}
+          </div>
+        </div>`;
       const bookingTotal = (parseFloat(l.pay_cash)||0)+(parseFloat(l.pay_fonepay)||0)+(parseFloat(l.pay_esewa)||0)+(parseFloat(l.pay_cheque)||0);
       const paySplit = bookingTotal>0 ? `
         <div class="pay-split-box" style="margin-top:10px">
@@ -3606,7 +3728,7 @@ function printCustomerProfile(id) {
   const row = (label, val, span) => `<tr><td class="lbl">${fe(label)}</td><td class="val${span?' span':''}">${fe(String(val||'—'))}</td></tr>`;
 
   // status colours
-  const statusColor = {Hot:'#e8420a',Warm:'#f5a623',Cold:'#3b82f6',Converted:'#16a34a',Lost:'#6b7280'};
+  const statusColor = {Hot:'#e8420a',Warm:'#f5a623',Cold:'#3b82f6',Converted:'#16a34a',Lost:'#6b7280','Wrong Number':'#a21caf'};
   const sColor = statusColor[l.leadStatus] || '#1a3a6e';
 
   // follow-up notes (latest 5, compact)
@@ -3637,7 +3759,14 @@ function printCustomerProfile(id) {
 
   // booking section
   const bk = l.bookingStatus || 'No';
-  const bookingHtml = bk !== 'No' ? `
+  const bookingHtml = (bk==='Lost' || bk==='Wrong Number') ? `
+    <div class="section">
+      <div class="sec-title">🔒 Lead Closed</div>
+      <table><tbody>
+        ${row('Booking Status', bk==='Lost' ? '❌ Lost' : '📵 Wrong Number')}
+        ${row('Reason', l.lostReason || '—')}
+      </tbody></table>
+    </div>` : bk !== 'No' ? `
     <div class="section">
       <div class="sec-title">📋 Booking Details</div>
       <table><tbody>
@@ -3804,8 +3933,8 @@ function printCustomerProfile(id) {
   <div class="section">
     <div class="sec-title">📊 Lead Details</div>
     <table><tbody>
-      ${row('Follow-Up Date', fd(l.followUpDate))}
-      ${row('Visit Date', fd(l.visitDate))}
+      ${row('First Visit Date', fd(l.visitDate))}
+      ${row('Next Follow-Up', fd(l.followUpDate))}
       ${row('Exchange', l.exchange==='Yes'?'✅ Yes':'No')}
       ${l.remark ? row('Remark', l.remark) : ''}
     </tbody></table>
@@ -4157,12 +4286,17 @@ function importCRMJson(e) {
       // Status mapping: CRM → v15
       const statusMap = {
         'HOT': 'Hot', 'WARM': 'Warm', 'COLD': 'Cold',
-        'SOLD': 'Converted', 'LOST': 'Lost'
+        'SOLD': 'Converted', 'LOST': 'Cold',
+        'WRONG NUMBER': 'Cold', 'WRONG_NUMBER': 'Cold'
+      };
+      // Booking status mapping — Lost / Wrong Number now live on bookingStatus
+      const bookingStatusMap = {
+        'LOST': 'Lost', 'WRONG NUMBER': 'Wrong Number', 'WRONG_NUMBER': 'Wrong Number'
       };
       // Priority based on status
       const priorityMap = {
         'HOT': 'High', 'WARM': 'Medium', 'COLD': 'Low',
-        'SOLD': 'High', 'LOST': 'Low'
+        'SOLD': 'High', 'LOST': 'Low', 'WRONG NUMBER': 'Low', 'WRONG_NUMBER': 'Low'
       };
       // Payment/finance mapping
       const financeMap = {
@@ -4172,6 +4306,7 @@ function importCRMJson(e) {
       const converted = parsed.map(c => {
         const crmStatus = (c.status || 'WARM').toUpperCase();
         const leadStatus = statusMap[crmStatus] || 'Warm';
+        const bookingStatus = bookingStatusMap[crmStatus] || 'No';
         const priority   = priorityMap[crmStatus] || 'Medium';
         const finance    = financeMap[(c.payment_mode || '').toLowerCase()] || 'Cash';
 
@@ -4204,6 +4339,7 @@ function importCRMJson(e) {
           municipality: '',
           interestedModel: c.model || '',
           leadStatus,
+          bookingStatus,
           priority,
           source: c.source === 'walking' ? 'Walk-in' : (c.source || 'Walk-in'),
           followUpDate: c.followup_1st_date && /^\d{4}-\d{2}-\d{2}$/.test(c.followup_1st_date) ? c.followup_1st_date : '',
@@ -4761,7 +4897,7 @@ function closeDupModal() {
 function renderDupCards() {
   const container = document.getElementById('dupCards');
   if (!_dupMatches.length) { container.innerHTML = '<p style="color:#9ba3b8;font-size:13px;padding:12px 0">Duplicate leads फेला परेन।</p>'; return; }
-  const statusColors = { Hot:'badge-hot', Warm:'badge-warm', Cold:'badge-cold', Converted:'badge-converted', Lost:'badge-lost' };
+  const statusColors = { Hot:'badge-hot', Warm:'badge-warm', Cold:'badge-cold', Converted:'badge-converted', Lost:'badge-lost', 'Wrong Number':'badge-wrongnumber' };
   container.innerHTML = _dupMatches.map(l => {
     const initials = (l.name||'?').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
     const statusCls = statusColors[l.leadStatus] || 'badge-cold';
